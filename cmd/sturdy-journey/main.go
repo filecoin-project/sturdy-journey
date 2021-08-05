@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/xerrors"
 
+	_ "github.com/filecoin-project/sturdy-journey/journey/greeting"
 	_ "github.com/filecoin-project/sturdy-journey/journey/lotus"
 )
 
