@@ -1,0 +1,151 @@
+#
+# ---
+# # this secret needs to be created when the targeted namespace
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: sturdy-journey
+# data:
+#   # shared secret with github webhooks used to sign and verify incoming requests
+#   # see https://docs.github.com/en/developers/webhooks-and-events/webhooks/securing-your-webhooks
+#   lotus-gh-webhook-secret:
+#   # circleci personal access token with permissions to interact with circle v2 api
+#   # project scoped tokens do not work with v2 api
+#   # see https://support.circleci.com/hc/en-us/articles/360060360811-CircleCI-API-v2-returns-404-Not-Found-
+#   filecoin-helper-circle-token:
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sturdy-journey
+data:
+  config.toml: |
+    [[Journeys]]
+    Name = "lotus"
+    Enabled = true
+    RoutePath = "/4108a7d174984d1b64eee6cbcea63b294def2efa/filecoin-project/lotus/github-webhook"
+    SecretPath = "/opt/sturdy-journey/secrets/lotus-gh-webhook-secret"
+    ConfigPath = "/opt/sturdy-journey/configs/lotus.toml"
+  lotus.toml: |
+    PipelineBranch = "master"
+    CircleTokenPath = "/opt/sturdy-journey/secrets/filecoin-helper-circle-token"
+    CircleProject = "filecoin-project/lotus-infra"
+    CircleBaseURL = "https://circleci.com/api/v2/"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sturdy-journey
+  labels:
+    app: sturdy-journey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sturdy-journey
+  template:
+    metadata:
+      labels:
+        app: sturdy-journey
+    spec:
+      volumes:
+      - name: config
+        configMap:
+          name: sturdy-journey
+      - name: secrets
+        secret:
+          secretName: sturdy-journey
+      containers:
+      - name: api
+        image: filecoin/sturdy-journey:latest
+        command: ['/usr/bin/local/sturdy-journey', 'journey-service', 'run']
+        ports:
+        - name: service
+          containerPort: 5100
+        - name: operator
+          containerPort: 5101
+        livenessProbe:
+          httpGet:
+            path: /liveness
+            port: operator
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 6
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: operator
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 6
+        env:
+          - name: STURDY_JOURNEY_SERVICE_LISTEN
+            value: "0.0.0.0:5100"
+          - name: STURDY_JOURNEY_OPERATOR_LISTEN
+            value: "0.0.0.0:5101"
+          - name: STURDY_JOURNEY_CONFIG_PATH
+            value: "/opt/sturdy-journey/configs/config.toml"
+          - name: GOLOG_LOG_FMT
+            value: json
+          - name: GOLOG_LOG_LEVEL
+            value: error
+          - name: STURDY_JOURNEY_LOG_LEVEL
+            value: debug
+        volumeMounts:
+          - name: config
+            mountPath: "/opt/sturdy-journey/configs"
+            readOnly: true
+          - name: secrets
+            mountPath: "/opt/sturdy-journey/secrets"
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sturdy-journey
+spec:
+  type: ClusterIP
+  selector:
+    app: sturdy-journey
+  ports:
+  - name: service
+    port: 8080
+    protocol: TCP
+    targetPort: service
+  - name: operator
+    port: 9090
+    protocol: TCP
+    targetPort: operator
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sturdy-journey
+spec:
+  selector:
+    matchLabels:
+      app: sturdy-journey
+  endpoints:
+  - port: operator
+    path: /metrics
+    interval: 30s
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: sturdy-journey
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
+spec:
+  rules:
+  - host: "lb.mainnet-us-east-2-dev.fildevops.net"
+    http:
+      paths:
+      - path: "/sturdy-journey(/|$)(.*)"
+        backend:
+          serviceName: sturdy-journey
+          servicePort: service
