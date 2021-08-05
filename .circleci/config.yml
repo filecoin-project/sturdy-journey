@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  go: circleci/go@1.16
+  go: circleci/go@1.7.0
 
 executors:
   docker-publisher:
@@ -19,9 +19,9 @@ jobs:
       - go/mod-download
       - go/save-cache
       - go/test:
-        covermode: atomic
-        failfast: true
-        race: true
+          covermode: atomic
+          failfast: true
+          race: true
 
   docker-build:
     executor: docker-publisher
@@ -95,7 +95,7 @@ workflows:
           context:
             - filecoin-dockerhub-publish
           requires:
-            - build
+            - docker-build
           filters:
             branches:
               only: main
