@@ -59,7 +59,7 @@ spec:
       containers:
       - name: api
         image: filecoin/sturdy-journey:latest
-        command: ['/usr/bin/local/sturdy-journey', 'journey-service', 'run']
+        command: ['/usr/local/bin/sturdy-journey', 'journey-service', 'run']
         ports:
         - name: service
           containerPort: 5100
