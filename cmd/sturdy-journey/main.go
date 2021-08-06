@@ -52,7 +52,7 @@ func main() {
 
 func setupLogging(cctx *cli.Context) error {
 	ll := cctx.String("log-level")
-	if err := logging.SetLogLevel("sturdy-journey/*", ll); err != nil {
+	if err := logging.SetLogLevelRegex("sturdy-journey/*", ll); err != nil {
 		return xerrors.Errorf("set log level: %w", err)
 	}
 
