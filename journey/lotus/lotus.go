@@ -97,7 +97,7 @@ func (j *Journey) HandleEvent(event interface{}) error {
 }
 
 func (j *Journey) processReleaseEvent(event *github.ReleaseEvent) error {
-	log.Debugw("processing release event", "github_release_name", event.Release.Name, "github_tag_name", event.Release.TagName, "github_prerelease", event.Release.Prerelease)
+	log.Debugw("processing release event", "github_release_name", event.Release.Name, "github_tag_name", event.Release.TagName, "github_prerelease", event.Release.Prerelease, "action", *event.Action)
 	// https://docs.github.com/en/developers/webhooks-and-events/webhooks/webhook-events-and-payloads#release
 	if !(*event.Action == "prerelease" || *event.Action == "released") {
 		return nil
